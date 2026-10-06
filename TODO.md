@@ -11,7 +11,7 @@ A comprehensive feature roadmap and implementation plan for **WealthHorizon**. E
   - **Vue 3 Concepts:** Reactive compound computed pipelines, dynamic calculation branching.
   - **UI (Bootstrap 5):** `form-check form-switch`, `input-group`, secondary badge indicators on cards showing "In today's purchasing power".
 
-- [ ] **2. Financial Milestones & Freedom Age Tracker**
+- [x] **2. Financial Milestones & Freedom Age Tracker**
   - **Financial Logic:** Automatically computes and displays the exact calendar year and age when crossing key portfolio milestones (£100k, £250k, £500k, £1M, or Coast FIRE).
   - **Vue 3 Concepts:** Inverse compound mathematical solving, derived computed arrays, reactive date/age projections.
   - **UI (Bootstrap 5):** `card`, `list-group list-group-flush`, `badge bg-success-subtle text-success`, milestone progress indicators.

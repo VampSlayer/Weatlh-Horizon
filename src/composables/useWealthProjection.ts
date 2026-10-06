@@ -1,8 +1,23 @@
 import { ref, computed, watch } from 'vue'
-import type { WealthPot, PotProjection } from '../types/wealth'
+import type { WealthPot, PotProjection, FinancialMilestone } from '../types/wealth'
 
 const STORAGE_KEY = 'wealth_horizon_v1'
 
+export interface CustomMilestoneItem {
+  id: string
+  label: string
+  targetAmount: number
+}
+
+interface SavedState {
+  pots: WealthPot[]
+  currentAge: number
+  retirementAge: number
+  targetYear: number
+  currency: string
+  customMilestones?: CustomMilestoneItem[]
+}
+ 
 const DEFAULT_POTS: WealthPot[] = [
   {
     id: 'pot-pension',
@@ -72,9 +87,12 @@ export function useWealthProjection() {
   // Reactive timestamp of when changes were last saved
   const lastSavedTime = ref<string>('Just now')
 
+  // Custom milestones added by user
+  const customMilestones = ref<CustomMilestoneItem[]>(saved?.customMilestones ?? [])
+
   // Vue 3 watch with { deep: true } to auto-save on any change!
   watch(
-    [pots, currentAge, retirementAge, targetYear, currency],
+    [pots, currentAge, retirementAge, targetYear, currency, customMilestones],
     () => {
       try {
         const state: SavedState = {
@@ -83,6 +101,7 @@ export function useWealthProjection() {
           retirementAge: retirementAge.value,
           targetYear: targetYear.value,
           currency: currency.value,
+          customMilestones: customMilestones.value,
         }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
         const now = new Date()
@@ -240,11 +259,194 @@ export function useWealthProjection() {
     retirementAge.value = 65
     targetYear.value = currentYear.value + 10
     currency.value = '£'
+    customMilestones.value = []
     lastSavedTime.value = 'Reset to defaults'
   }
 
   function formatCurrency(amount: number): string {
     return `${currency.value}${Math.round(amount).toLocaleString()}`
+  }
+
+  // --- Milestone & Freedom Age Solver ---
+  function getPortfolioValueAtMonth(m: number): number {
+    if (m <= 0) return totalWealthNow.value
+    let total = 0
+    for (const pot of pots.value) {
+      const p = Number(pot.currentAmount) || 0
+      const annualRate = Number(pot.annualRate) || 0
+      const pmt = Number(pot.monthlyContribution) || 0
+      const r = annualRate / 100 / 12
+      if (r === 0) {
+        total += p + pmt * m
+      } else {
+        const principalGrowth = p * Math.pow(1 + r, m)
+        const contributionGrowth = pmt * ((Math.pow(1 + r, m) - 1) / r)
+        total += principalGrowth + contributionGrowth
+      }
+    }
+    return total
+  }
+
+  // Solves for exact month when total portfolio reaches or exceeds targetAmount
+  function findMonthsToTarget(targetAmount: number): number | null {
+    const currentTotal = totalWealthNow.value
+    if (currentTotal >= targetAmount) {
+      return 0
+    }
+
+    const MAX_MONTHS = 960 // Up to 80 years
+    if (getPortfolioValueAtMonth(MAX_MONTHS) < targetAmount) {
+      return null
+    }
+
+    let low = 0
+    let high = MAX_MONTHS
+    let ans = MAX_MONTHS
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2)
+      if (getPortfolioValueAtMonth(mid) >= targetAmount) {
+        ans = mid
+        high = mid - 1
+      } else {
+        low = mid + 1
+      }
+    }
+
+    return ans
+  }
+
+  const defaultMilestoneDefs = [
+    {
+      id: 'm-100k',
+      targetAmount: 100000,
+      label: 'The First 100k',
+      description: 'The catalyst threshold where compound interest begins rivaling manual contributions.',
+    },
+    {
+      id: 'm-250k',
+      targetAmount: 250000,
+      label: 'Quarter Million',
+      description: 'Compounding reaches escape velocity; 7% market return generates >17.5k passively per year.',
+    },
+    {
+      id: 'm-500k',
+      targetAmount: 500000,
+      label: 'Half Million',
+      description: 'Halfway to 7-figure wealth. Annual portfolio growth frequently eclipses median full-time salaries.',
+    },
+    {
+      id: 'm-1m',
+      targetAmount: 1000000,
+      label: 'The Millionaire Club',
+      description: 'Classic financial independence horizon. At 4% SWR, sustains substantial passive retirement cashflow.',
+    },
+    {
+      id: 'm-2m',
+      targetAmount: 2000000,
+      label: 'Multi-Millionaire',
+      description: 'Generational wealth security and high-tier passive lifestyle sustainability.',
+    },
+  ]
+
+  const milestones = computed<FinancialMilestone[]>(() => {
+    const currentTotal = totalWealthNow.value
+    const list: FinancialMilestone[] = []
+
+    for (const def of defaultMilestoneDefs) {
+      const isReached = currentTotal >= def.targetAmount
+      const progressPercent = Math.min(100, Math.max(0, (currentTotal / def.targetAmount) * 100))
+      const months = isReached ? 0 : findMonthsToTarget(def.targetAmount)
+      const years = months !== null ? +(months / 12).toFixed(1) : null
+      const projectedYear = months !== null ? currentYear.value + Math.floor(months / 12) : null
+      const projectedAge = months !== null ? currentAge.value + Math.floor(months / 12) : null
+
+      list.push({
+        id: def.id,
+        targetAmount: def.targetAmount,
+        label: def.label,
+        description: def.description,
+        isReached,
+        progressPercent,
+        monthsToReach: months,
+        yearsToReach: years,
+        projectedYear,
+        projectedAge,
+        isCustom: false,
+      })
+    }
+
+    for (const cm of customMilestones.value) {
+      const isReached = currentTotal >= cm.targetAmount
+      const progressPercent = Math.min(100, Math.max(0, (currentTotal / cm.targetAmount) * 100))
+      const months = isReached ? 0 : findMonthsToTarget(cm.targetAmount)
+      const years = months !== null ? +(months / 12).toFixed(1) : null
+      const projectedYear = months !== null ? currentYear.value + Math.floor(months / 12) : null
+      const projectedAge = months !== null ? currentAge.value + Math.floor(months / 12) : null
+
+      list.push({
+        id: cm.id,
+        targetAmount: cm.targetAmount,
+        label: cm.label,
+        description: 'Custom financial goal target',
+        isReached,
+        progressPercent,
+        monthsToReach: months,
+        yearsToReach: years,
+        projectedYear,
+        projectedAge,
+        isCustom: true,
+      })
+    }
+
+    return list.sort((a, b) => a.targetAmount - b.targetAmount)
+  })
+
+  // Next upcoming milestone
+  const nextMilestone = computed<FinancialMilestone | null>(() => {
+    return milestones.value.find((m) => !m.isReached) ?? null
+  })
+
+  // Coast FIRE calculation:
+  // If zero further deposits are made from today onwards, what does current portfolio grow to by retirement age?
+  const coastRetirementValue = computed(() => {
+    const yrs = yearsUntilRetirement.value
+    let total = 0
+    for (const pot of pots.value) {
+      const p = Number(pot.currentAmount) || 0
+      const annualRate = Number(pot.annualRate) || 0
+      const r = annualRate / 100
+      total += p * Math.pow(1 + r, yrs)
+    }
+    return total
+  })
+
+  // Coast FIRE target: Amount needed today to hit target retirement wealth with £0 monthly savings
+  const coastFireTargetToday = computed(() => {
+    const yrs = yearsUntilRetirement.value
+    if (yrs <= 0) return totalProjectedWealth.value
+    const totalP = totalWealthNow.value || 1
+    const weightedRate = pots.value.reduce((acc, p) => acc + (Number(p.currentAmount) || 0) * (Number(p.annualRate) || 0), 0) / totalP
+    const r = weightedRate / 100
+    if (r <= 0) return totalProjectedWealth.value
+    return totalProjectedWealth.value / Math.pow(1 + r, yrs)
+  })
+
+  const isCoastFireReached = computed(() => {
+    return totalWealthNow.value >= coastFireTargetToday.value && totalWealthNow.value > 0
+  })
+
+  function addCustomMilestone(label: string, targetAmount: number) {
+    if (!label.trim() || targetAmount <= 0) return
+    customMilestones.value.push({
+      id: `milestone-${Date.now()}`,
+      label: label.trim(),
+      targetAmount: Math.round(targetAmount),
+    })
+  }
+
+  function removeCustomMilestone(id: string) {
+    customMilestones.value = customMilestones.value.filter((m) => m.id !== id)
   }
 
   return {
@@ -268,6 +470,13 @@ export function useWealthProjection() {
     totalInterestGained,
     growthMultiplier,
     lastSavedTime,
+    milestones,
+    nextMilestone,
+    coastRetirementValue,
+    coastFireTargetToday,
+    isCoastFireReached,
+    addCustomMilestone,
+    removeCustomMilestone,
     addPot,
     removePot,
     updatePot,

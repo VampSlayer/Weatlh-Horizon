@@ -17,3 +17,17 @@ export interface PotProjection {
   interestEarned: number
   years: number
 }
+
+export interface FinancialMilestone {
+  id: string
+  targetAmount: number
+  label: string
+  description: string
+  isCustom?: boolean
+  isReached: boolean
+  progressPercent: number
+  monthsToReach: number | null
+  yearsToReach: number | null
+  projectedYear: number | null
+  projectedAge: number | null
+}

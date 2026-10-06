@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useWealthProjection } from '../../composables/useWealthProjection'
 import WealthHeader from './WealthHeader.vue'
 import WealthStats from './WealthStats.vue'
+import WealthMilestones from './WealthMilestones.vue'
 import WealthPotCard from './WealthPotCard.vue'
 import AddPotForm from './AddPotForm.vue'
 
@@ -26,6 +27,13 @@ const {
   totalInterestGained,
   growthMultiplier,
   lastSavedTime,
+  milestones,
+  nextMilestone,
+  coastRetirementValue,
+  coastFireTargetToday,
+  isCoastFireReached,
+  addCustomMilestone,
+  removeCustomMilestone,
   addPot,
   removePot,
   updatePot,
@@ -92,6 +100,23 @@ const categoryBreakdown = computed(() => {
       :monthly-passive-income="monthlyPassiveIncome"
       :annual-passive-income="annualPassiveIncome"
       :currency="currency"
+    />
+
+    <!-- Financial Milestones & Freedom Age Tracker -->
+    <WealthMilestones
+      :milestones="milestones"
+      :next-milestone="nextMilestone"
+      :total-wealth-now="totalWealthNow"
+      :total-projected-wealth="totalProjectedWealth"
+      :current-age="currentAge"
+      :retirement-age="retirementAge"
+      :current-year="currentYear"
+      :currency="currency"
+      :coast-retirement-value="coastRetirementValue"
+      :coast-fire-target-today="coastFireTargetToday"
+      :is-coast-fire-reached="isCoastFireReached"
+      @add-milestone="addCustomMilestone($event.label, $event.targetAmount)"
+      @remove-milestone="removeCustomMilestone"
     />
 
     <!-- Section Title -->
