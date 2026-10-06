@@ -66,11 +66,25 @@ Every commit pushed to the `main` branch will automatically:
 
 ---
 
+## 🗺️ Roadmap & Upcoming Features
+
+Check out the detailed feature plan in [TODO.md](TODO.md) covering:
+- 📉 **Inflation Adjustment (Real vs. Nominal Wealth)**
+- 🎯 **Financial Milestones & Freedom Age Tracker**
+- 🌙 **Native Bootstrap 5 Dark Mode Toggle**
+- 📊 **Year-by-Year Growth Schedule & Breakdown Table**
+- 🔀 **Scenario Planning (Conservative / Moderate / Aggressive)**
+- 🎁 **Lump Sum Life Events (Windfalls & Major Expenses)**
+- 📁 **JSON/CSV Export & Import**
+
+---
+
 ## 📂 Project Structure
 
 ```
 ├── GEMINI.md                    # AI agent guidelines & architectural rules
 ├── README.md                    # Project overview & documentation
+├── TODO.md                      # Feature roadmap & task list
 ├── index.html                   # HTML entry point
 ├── package.json                 # Dependencies & scripts
 ├── public/
